@@ -5,6 +5,17 @@ use ink_lang as ink;
 #[ink::contract]
 mod aes_256_gcm_demo {
 
+    use aes_gcm::aead::{Aead, NewAead};
+    use aes_gcm::{Aes256Gcm, Key, Nonce};
+
+    pub const IV_BYTES: usize = 12;
+    pub type IV = [u8; IV_BYTES];
+
+    pub const AES_KEY_BYTES: usize = 32;
+    pub type AESKey = [u8; AES_KEY_BYTES];
+
+    pub const BLOCK_BYTES: usize = 16;
+
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
@@ -42,6 +53,44 @@ mod aes_256_gcm_demo {
         pub fn get(&self) -> bool {
             self.value
         }
+
+        #[ink(message)]
+        pub fn encrypt(&self, offset_bytes: u64, data: Vec<u8>, iv: IV, key: AESKey) -> Vec<u8> {
+            if offset_bytes % (BLOCK_BYTES as u64) != 0 {
+                panic!(
+                    "Offset must be in multiples of block length of {} bytes",
+                    BLOCK_BYTES
+                );
+            }
+
+            let key = Key::from_slice(&key);
+            let cipher = Aes256Gcm::new(key);
+            // TODO: increase IV by offset / BLOCK_LEN
+            let nonce = Nonce::from_slice(&iv); // 96-bits; unique per message
+
+            cipher
+                .encrypt(nonce, data.as_ref())
+                .expect("encryption failure!")
+        }
+
+        #[ink(message)]
+        pub fn decrypt(&self, offset_bytes: u64, data: Vec<u8>, iv: IV, key: AESKey) -> Vec<u8> {
+            if offset_bytes % (BLOCK_BYTES as u64) != 0 {
+                panic!(
+                    "Offset must be in multiples of block length of {} bytes",
+                    BLOCK_BYTES
+                );
+            }
+
+            let key = Key::from_slice(&key);
+            let cipher = Aes256Gcm::new(key);
+            // TODO: increase IV by offset / BLOCK_LEN
+            let nonce = Nonce::from_slice(&iv); // 96-bits; unique per message
+
+            cipher
+                .decrypt(nonce, data.as_ref())
+                .expect("decryption failure!")
+        }
     }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
@@ -69,6 +118,19 @@ mod aes_256_gcm_demo {
             assert_eq!(aes_256_gcm_demo.get(), false);
             aes_256_gcm_demo.flip();
             assert_eq!(aes_256_gcm_demo.get(), true);
+        }
+
+        #[ink::test]
+        fn encrypt_and_decrypt() {
+            let aes_256_gcm_demo = Aes256GcmDemo::default();
+
+            let key: AESKey = [0; AES_KEY_BYTES];
+            let iv: IV = [0; IV_BYTES];
+            let data = b"plaintext message";
+
+            let ciphertext = aes_256_gcm_demo.encrypt(0, data.to_vec(), iv, key);
+            let plaintext = aes_256_gcm_demo.decrypt(0, ciphertext, iv, key);
+            assert_eq!(plaintext, data.to_vec());
         }
     }
 }
