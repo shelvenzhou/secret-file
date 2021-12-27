@@ -2,11 +2,6 @@
 //!
 //! This is an ERC-721 Token implementation.
 //!
-//! ## Warning
-//!
-//! This contract is an *example*. It is neither audited nor endorsed for production use.
-//! Do **not** rely on it to keep anything of value secure.
-//!
 //! ## Overview
 //!
 //! This contract demonstrates how to build non-fungible or unique tokens using ink!.
@@ -54,8 +49,12 @@ use ink_lang as ink;
 
 #[ink::contract]
 mod aes_256_gcm_demo {
+    use ink_prelude::{string::String, vec::Vec};
     #[cfg(not(feature = "ink-as-dependency"))]
-    use ink_storage::collections::{hashmap::Entry, HashMap as StorageHashMap};
+    use ink_storage::{
+        collections::{hashmap::Entry, HashMap as StorageHashMap},
+        traits::{PackedLayout, SpreadLayout},
+    };
     use scale::{Decode, Encode};
 
     use aes_gcm::aead::{Aead, NewAead};
@@ -68,6 +67,86 @@ mod aes_256_gcm_demo {
     pub type AESKey = [u8; AES_KEY_BYTES];
 
     pub const BLOCK_BYTES: usize = 16;
+
+    /// Secret file handle with secret key, initial vector and link
+    #[derive(
+        Clone,
+        Debug,
+        Ord,
+        PartialOrd,
+        Eq,
+        PartialEq,
+        Default,
+        PackedLayout,
+        SpreadLayout,
+        Encode,
+        Decode,
+    )]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub struct SecretFileHandle {
+        key: AESKey,
+        iv: IV,
+        link: Option<String>,
+    }
+
+    impl SecretFileHandle {
+        pub fn new(key: AESKey, iv: IV) -> Self {
+            Self {
+                key,
+                iv,
+                link: None,
+            }
+        }
+
+        /// Set the link of file handle.
+        ///
+        /// The link can only be set once.
+        pub fn set_link(&mut self, link: String) -> Result<(), Error> {
+            if self.link.is_some() {
+                return Err(Error::LinkExists);
+            }
+            self.link = Some(link);
+            Ok(())
+        }
+
+        pub fn encrypt(&self, _offset_bytes: u64, plaintext: Vec<u8>) -> Result<Vec<u8>, Error> {
+            // if offset_bytes % (BLOCK_BYTES as u64) != 0 {
+            //     panic!(
+            //         "Offset must be in multiples of block length of {} bytes",
+            //         BLOCK_BYTES
+            //     );
+            // }
+
+            let key = Key::from_slice(&self.key);
+            let cipher = Aes256Gcm::new(key);
+            // TODO: increase IV by offset / BLOCK_LEN
+            let nonce = Nonce::from_slice(&self.iv); // 96-bits; unique per message
+
+            let ciphertext = cipher
+                .encrypt(nonce, plaintext.as_ref())
+                .map_err(|_| Error::CannotEncrypt)?;
+            Ok(ciphertext)
+        }
+
+        pub fn decrypt(&self, _offset_bytes: u64, ciphertext: Vec<u8>) -> Result<Vec<u8>, Error> {
+            // if offset_bytes % (BLOCK_BYTES as u64) != 0 {
+            //     panic!(
+            //         "Offset must be in multiples of block length of {} bytes",
+            //         BLOCK_BYTES
+            //     );
+            // }
+
+            let key = Key::from_slice(&self.key);
+            let cipher = Aes256Gcm::new(key);
+            // TODO: increase IV by offset / BLOCK_LEN
+            let nonce = Nonce::from_slice(&self.iv); // 96-bits; unique per message
+
+            let plaintext = cipher
+                .decrypt(nonce, ciphertext.as_ref())
+                .map_err(|_| Error::CannotDecrypt)?;
+            Ok(plaintext)
+        }
+    }
 
     /// A token ID.
     pub type TokenId = u32;
@@ -83,11 +162,14 @@ mod aes_256_gcm_demo {
         owned_tokens_count: StorageHashMap<AccountId, u32>,
         /// Mapping from owner to operator approvals.
         operator_approvals: StorageHashMap<(AccountId, AccountId), bool>,
+        /// Mapping from token to secret file handle.
+        file_handles: StorageHashMap<TokenId, SecretFileHandle>,
     }
 
     #[derive(Encode, Decode, Debug, PartialEq, Eq, Copy, Clone)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum Error {
+        // ERC-721
         NotOwner,
         NotApproved,
         TokenExists,
@@ -96,6 +178,10 @@ mod aes_256_gcm_demo {
         CannotRemove,
         CannotFetchValue,
         NotAllowed,
+        // Secret File
+        LinkExists,
+        CannotEncrypt,
+        CannotDecrypt,
     }
 
     /// Event emitted when a token transfer occurs.
@@ -140,8 +226,11 @@ mod aes_256_gcm_demo {
                 token_approvals: Default::default(),
                 owned_tokens_count: Default::default(),
                 operator_approvals: Default::default(),
+                file_handles: Default::default(),
             }
         }
+
+        // ========== Standard ERC-721 Interface ==========
 
         /// Returns the balance of the owner.
         ///
@@ -240,44 +329,6 @@ mod aes_256_gcm_demo {
                 id,
             });
             Ok(())
-        }
-
-        #[ink(message)]
-        pub fn encrypt(&self, offset_bytes: u64, data: Vec<u8>, iv: IV, key: AESKey) -> Vec<u8> {
-            if offset_bytes % (BLOCK_BYTES as u64) != 0 {
-                panic!(
-                    "Offset must be in multiples of block length of {} bytes",
-                    BLOCK_BYTES
-                );
-            }
-
-            let key = Key::from_slice(&key);
-            let cipher = Aes256Gcm::new(key);
-            // TODO: increase IV by offset / BLOCK_LEN
-            let nonce = Nonce::from_slice(&iv); // 96-bits; unique per message
-
-            cipher
-                .encrypt(nonce, data.as_ref())
-                .expect("encryption failure!")
-        }
-
-        #[ink(message)]
-        pub fn decrypt(&self, offset_bytes: u64, data: Vec<u8>, iv: IV, key: AESKey) -> Vec<u8> {
-            if offset_bytes % (BLOCK_BYTES as u64) != 0 {
-                panic!(
-                    "Offset must be in multiples of block length of {} bytes",
-                    BLOCK_BYTES
-                );
-            }
-
-            let key = Key::from_slice(&key);
-            let cipher = Aes256Gcm::new(key);
-            // TODO: increase IV by offset / BLOCK_LEN
-            let nonce = Nonce::from_slice(&iv); // 96-bits; unique per message
-
-            cipher
-                .decrypt(nonce, data.as_ref())
-                .expect("decryption failure!")
         }
 
         /// Transfers token `id` `from` the sender to the `to` `AccountId`.
@@ -743,19 +794,6 @@ mod aes_256_gcm_demo {
                 1000000,
                 test::CallData::new(call::Selector::new([0x00; 4])), // dummy
             );
-        }
-
-        #[ink::test]
-        fn encrypt_and_decrypt() {
-            let aes_256_gcm_demo = Erc721::default();
-
-            let key: AESKey = [0; AES_KEY_BYTES];
-            let iv: IV = [0; IV_BYTES];
-            let data = b"plaintext message";
-
-            let ciphertext = aes_256_gcm_demo.encrypt(0, data.to_vec(), iv, key);
-            let plaintext = aes_256_gcm_demo.decrypt(0, ciphertext, iv, key);
-            assert_eq!(plaintext, data.to_vec());
         }
     }
 }
