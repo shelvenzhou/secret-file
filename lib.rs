@@ -49,6 +49,8 @@ use ink_lang as ink;
 
 #[ink::contract]
 mod aes_256_gcm_demo {
+    use core::convert::TryInto;
+
     use ink_prelude::{string::String, vec::Vec};
     #[cfg(not(feature = "ink-as-dependency"))]
     use ink_storage::{
@@ -67,6 +69,12 @@ mod aes_256_gcm_demo {
     pub type AESKey = [u8; AES_KEY_BYTES];
 
     pub const BLOCK_BYTES: usize = 16;
+
+    // this is a mock version
+    // TODO: get random from pRuntime
+    fn next_random() -> [u8; 32] {
+        [1; 32]
+    }
 
     /// Secret file handle with secret key, initial vector and link
     #[derive(
@@ -90,10 +98,12 @@ mod aes_256_gcm_demo {
     }
 
     impl SecretFileHandle {
-        pub fn new(key: AESKey, iv: IV) -> Self {
+        pub fn new() -> Self {
             Self {
-                key,
-                iv,
+                key: next_random(),
+                iv: next_random()[..IV_BYTES]
+                    .try_into()
+                    .expect("should not fail with valid length; qed."),
                 link: None,
             }
         }
@@ -182,6 +192,7 @@ mod aes_256_gcm_demo {
         LinkExists,
         CannotEncrypt,
         CannotDecrypt,
+        FileNotFound,
     }
 
     /// Event emitted when a token transfer occurs.
@@ -329,6 +340,77 @@ mod aes_256_gcm_demo {
                 id,
             });
             Ok(())
+        }
+
+        // ========== Secret File Utilities ==========
+
+        /// Create a new file handle, allocate the secret key and iv.
+        #[ink(message)]
+        pub fn new_file(&mut self, id: TokenId) -> Result<(), Error> {
+            let file_handle = SecretFileHandle::new();
+            self.mint(id)?;
+            self.file_handles.insert(id, file_handle);
+            Ok(())
+        }
+
+        /// Set the link of file after uploading. Only the token owner can set the link.
+        /// A file can only be set once.
+        #[ink(message)]
+        pub fn update_link(&mut self, id: TokenId, link: String) -> Result<(), Error> {
+            let caller = self.env().caller();
+            let Self { token_owner, .. } = self;
+            let occupied = match token_owner.entry(id) {
+                Entry::Vacant(_) => return Err(Error::TokenNotFound),
+                Entry::Occupied(occupied) => occupied,
+            };
+            if occupied.get() != &caller {
+                return Err(Error::NotOwner);
+            };
+
+            let file_handle = self.file_handles.get_mut(&id).ok_or(Error::FileNotFound)?;
+            file_handle.set_link(link)?;
+            Ok(())
+        }
+
+        /// Encrypt a new file. A token with secret key and iv will be minted.
+        #[ink(message)]
+        pub fn encrypt_file(
+            &self,
+            id: TokenId,
+            offset_bytes: u64,
+            plaintext: Vec<u8>,
+        ) -> Result<Vec<u8>, Error> {
+            let caller = self.env().caller();
+            if !self.exists(id) {
+                return Err(Error::TokenNotFound);
+            };
+            if !self.approved_or_owner(Some(caller), id) {
+                return Err(Error::NotApproved);
+            };
+
+            let file_handle = self.file_handles.get(&id).ok_or(Error::FileNotFound)?;
+            let ciphertext = file_handle.encrypt(offset_bytes, plaintext)?;
+            Ok(ciphertext)
+        }
+
+        #[ink(message)]
+        pub fn decrypt_file(
+            &self,
+            id: TokenId,
+            offset_bytes: u64,
+            ciphertext: Vec<u8>,
+        ) -> Result<Vec<u8>, Error> {
+            let caller = self.env().caller();
+            if !self.exists(id) {
+                return Err(Error::TokenNotFound);
+            };
+            if !self.approved_or_owner(Some(caller), id) {
+                return Err(Error::NotApproved);
+            };
+
+            let file_handle = self.file_handles.get(&id).ok_or(Error::FileNotFound)?;
+            let plaintext = file_handle.decrypt(offset_bytes, ciphertext)?;
+            Ok(plaintext)
         }
 
         /// Transfers token `id` `from` the sender to the `to` `AccountId`.
