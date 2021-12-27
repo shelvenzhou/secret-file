@@ -867,6 +867,71 @@ mod aes_256_gcm_demo {
             assert_eq!(aes_256_gcm_demo.burn(1), Err(Error::NotOwner));
         }
 
+        #[ink::test]
+        fn file_operations() {
+            let mut aes_256_gcm_demo = Erc721::new();
+
+            let id = 1;
+            let file_content: Vec<u8> = b"hello world".to_vec();
+
+            // 1. create the file handle
+            aes_256_gcm_demo
+                .new_file(id)
+                .expect("Cannot create file handle");
+            // 2. encrypt the file and get the ciphertext
+            let ciphertext = aes_256_gcm_demo
+                .encrypt_file(id, 0, file_content.clone())
+                .expect("Cannot encrypt");
+            // 3. upload the ciphertext and get the link
+            let link = String::from("ipfs://demo-link");
+            aes_256_gcm_demo
+                .update_link(id, link)
+                .expect("Cannot set file link");
+            // 4. decrypt the file
+            let plaintext = aes_256_gcm_demo
+                .decrypt_file(id, 0, ciphertext)
+                .expect("Cannot decrypt");
+            assert_eq!(file_content, plaintext);
+        }
+
+        #[ink::test]
+        fn unauthorized_file_operations() {
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
+                .expect("Cannot get accounts");
+            let mut aes_256_gcm_demo = Erc721::new();
+
+            let id = 1;
+            let file_content: Vec<u8> = b"hello world".to_vec();
+            let link = String::from("ipfs://demo-link");
+
+            aes_256_gcm_demo
+                .new_file(id)
+                .expect("Cannot create file handle");
+            // token not exists
+            assert_eq!(
+                aes_256_gcm_demo.encrypt_file(id + 1, 0, file_content.clone()),
+                Err(Error::TokenNotFound)
+            );
+            assert_eq!(
+                aes_256_gcm_demo.update_link(id + 1, link.clone()),
+                Err(Error::TokenNotFound)
+            );
+            // unauthorized operations
+            set_sender(accounts.eve);
+            assert_eq!(
+                aes_256_gcm_demo.encrypt_file(id, 0, file_content.clone()),
+                Err(Error::NotApproved)
+            );
+            assert_eq!(
+                aes_256_gcm_demo.update_link(id, link.clone()),
+                Err(Error::NotOwner)
+            );
+            assert_eq!(
+                aes_256_gcm_demo.decrypt_file(id, 0, file_content.clone()),
+                Err(Error::NotApproved)
+            );
+        }
+
         fn set_sender(sender: AccountId) {
             let callee = ink_env::account_id::<ink_env::DefaultEnvironment>();
             test::push_execution_context::<Environment>(
