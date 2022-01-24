@@ -870,6 +870,8 @@ mod aes_256_gcm_demo {
         #[ink::test]
         fn file_operations() {
             let mut aes_256_gcm_demo = Erc721::new();
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
+                .expect("Cannot get accounts");
 
             let id = 1;
             let file_content: Vec<u8> = b"hello world".to_vec();
@@ -878,6 +880,8 @@ mod aes_256_gcm_demo {
             aes_256_gcm_demo
                 .new_file(id)
                 .expect("Cannot create file handle");
+            // ensure the token is correctly minted
+            assert_eq!(aes_256_gcm_demo.owner_of(id), Some(accounts.alice));
             // 2. encrypt the file and get the ciphertext
             let ciphertext = aes_256_gcm_demo
                 .encrypt_file(id, 0, file_content.clone())
