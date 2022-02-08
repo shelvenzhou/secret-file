@@ -46,9 +46,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ink_lang as ink;
+pub use secret_files::SecretFiles;
 
 #[ink::contract]
-mod aes_256_gcm_demo {
+mod secret_files {
     use core::convert::TryInto;
 
     use ink_prelude::{string::String, vec::Vec};
@@ -163,7 +164,7 @@ mod aes_256_gcm_demo {
 
     #[ink(storage)]
     #[derive(Default)]
-    pub struct Erc721 {
+    pub struct SecretFiles {
         /// Mapping from token to owner.
         token_owner: StorageHashMap<TokenId, AccountId>,
         /// Mapping from token to approvals users.
@@ -228,7 +229,7 @@ mod aes_256_gcm_demo {
         approved: bool,
     }
 
-    impl Erc721 {
+    impl SecretFiles {
         /// Creates a new ERC-721 token contract.
         #[ink(constructor)]
         pub fn new() -> Self {
@@ -594,15 +595,15 @@ mod aes_256_gcm_demo {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
             // Create a new contract instance.
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             // Token 1 does not exists.
-            assert_eq!(aes_256_gcm_demo.owner_of(1), None);
+            assert_eq!(secret_files.owner_of(1), None);
             // Alice does not owns tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 0);
+            assert_eq!(secret_files.balance_of(accounts.alice), 0);
             // Create token Id 1.
-            assert_eq!(aes_256_gcm_demo.mint(1), Ok(()));
+            assert_eq!(secret_files.mint(1), Ok(()));
             // Alice owns 1 token.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 1);
+            assert_eq!(secret_files.balance_of(accounts.alice), 1);
         }
 
         #[ink::test]
@@ -610,18 +611,18 @@ mod aes_256_gcm_demo {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
             // Create a new contract instance.
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             // Create token Id 1.
-            assert_eq!(aes_256_gcm_demo.mint(1), Ok(()));
+            assert_eq!(secret_files.mint(1), Ok(()));
             // The first Transfer event takes place
             assert_eq!(1, ink_env::test::recorded_events().count());
             // Alice owns 1 token.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 1);
+            assert_eq!(secret_files.balance_of(accounts.alice), 1);
             // Alice owns token Id 1.
-            assert_eq!(aes_256_gcm_demo.owner_of(1), Some(accounts.alice));
+            assert_eq!(secret_files.owner_of(1), Some(accounts.alice));
             // Cannot create  token Id if it exists.
             // Bob cannot own token Id 1.
-            assert_eq!(aes_256_gcm_demo.mint(1), Err(Error::TokenExists));
+            assert_eq!(secret_files.mint(1), Err(Error::TokenExists));
         }
 
         #[ink::test]
@@ -629,21 +630,21 @@ mod aes_256_gcm_demo {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
             // Create a new contract instance.
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             // Create token Id 1 for Alice
-            assert_eq!(aes_256_gcm_demo.mint(1), Ok(()));
+            assert_eq!(secret_files.mint(1), Ok(()));
             // Alice owns token 1
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 1);
+            assert_eq!(secret_files.balance_of(accounts.alice), 1);
             // Bob does not owns any token
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.bob), 0);
+            assert_eq!(secret_files.balance_of(accounts.bob), 0);
             // The first Transfer event takes place
             assert_eq!(1, ink_env::test::recorded_events().count());
             // Alice transfers token 1 to Bob
-            assert_eq!(aes_256_gcm_demo.transfer(accounts.bob, 1), Ok(()));
+            assert_eq!(secret_files.transfer(accounts.bob, 1), Ok(()));
             // The second Transfer event takes place
             assert_eq!(2, ink_env::test::recorded_events().count());
             // Bob owns token 1
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.bob), 1);
+            assert_eq!(secret_files.balance_of(accounts.bob), 1);
         }
 
         #[ink::test]
@@ -651,20 +652,20 @@ mod aes_256_gcm_demo {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
             // Create a new contract instance.
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             // Transfer token fails if it does not exists.
             assert_eq!(
-                aes_256_gcm_demo.transfer(accounts.bob, 2),
+                secret_files.transfer(accounts.bob, 2),
                 Err(Error::TokenNotFound)
             );
             // Token Id 2 does not exists.
-            assert_eq!(aes_256_gcm_demo.owner_of(2), None);
+            assert_eq!(secret_files.owner_of(2), None);
             // Create token Id 2.
-            assert_eq!(aes_256_gcm_demo.mint(2), Ok(()));
+            assert_eq!(secret_files.mint(2), Ok(()));
             // Alice owns 1 token.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 1);
+            assert_eq!(secret_files.balance_of(accounts.alice), 1);
             // Token Id 2 is owned by Alice.
-            assert_eq!(aes_256_gcm_demo.owner_of(2), Some(accounts.alice));
+            assert_eq!(secret_files.owner_of(2), Some(accounts.alice));
             // Get contract address
             let callee = ink_env::account_id::<ink_env::DefaultEnvironment>();
             // Create call
@@ -680,7 +681,7 @@ mod aes_256_gcm_demo {
             );
             // Bob cannot transfer not owned tokens.
             assert_eq!(
-                aes_256_gcm_demo.transfer(accounts.eve, 2),
+                secret_files.transfer(accounts.eve, 2),
                 Err(Error::NotApproved)
             );
         }
@@ -690,13 +691,13 @@ mod aes_256_gcm_demo {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
             // Create a new contract instance.
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             // Create token Id 1.
-            assert_eq!(aes_256_gcm_demo.mint(1), Ok(()));
+            assert_eq!(secret_files.mint(1), Ok(()));
             // Token Id 1 is owned by Alice.
-            assert_eq!(aes_256_gcm_demo.owner_of(1), Some(accounts.alice));
+            assert_eq!(secret_files.owner_of(1), Some(accounts.alice));
             // Approve token Id 1 transfer for Bob on behalf of Alice.
-            assert_eq!(aes_256_gcm_demo.approve(accounts.bob, 1), Ok(()));
+            assert_eq!(secret_files.approve(accounts.bob, 1), Ok(()));
             // Get contract address.
             let callee = ink_env::account_id::<ink_env::DefaultEnvironment>();
             // Create call
@@ -712,17 +713,17 @@ mod aes_256_gcm_demo {
             );
             // Bob transfers token Id 1 from Alice to Eve.
             assert_eq!(
-                aes_256_gcm_demo.transfer_from(accounts.alice, accounts.eve, 1),
+                secret_files.transfer_from(accounts.alice, accounts.eve, 1),
                 Ok(())
             );
             // TokenId 3 is owned by Eve.
-            assert_eq!(aes_256_gcm_demo.owner_of(1), Some(accounts.eve));
+            assert_eq!(secret_files.owner_of(1), Some(accounts.eve));
             // Alice does not owns tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 0);
+            assert_eq!(secret_files.balance_of(accounts.alice), 0);
             // Bob does not owns tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.bob), 0);
+            assert_eq!(secret_files.balance_of(accounts.bob), 0);
             // Eve owns 1 token.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.eve), 1);
+            assert_eq!(secret_files.balance_of(accounts.eve), 1);
         }
 
         #[ink::test]
@@ -730,20 +731,20 @@ mod aes_256_gcm_demo {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
             // Create a new contract instance.
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             // Create token Id 1.
-            assert_eq!(aes_256_gcm_demo.mint(1), Ok(()));
+            assert_eq!(secret_files.mint(1), Ok(()));
             // Create token Id 2.
-            assert_eq!(aes_256_gcm_demo.mint(2), Ok(()));
+            assert_eq!(secret_files.mint(2), Ok(()));
             // Alice owns 2 tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 2);
+            assert_eq!(secret_files.balance_of(accounts.alice), 2);
             // Approve token Id 1 transfer for Bob on behalf of Alice.
             assert_eq!(
-                aes_256_gcm_demo.set_approval_for_all(accounts.bob, true),
+                secret_files.set_approval_for_all(accounts.bob, true),
                 Ok(())
             );
             // Bob is an approved operator for Alice
-            assert!(aes_256_gcm_demo.is_approved_for_all(accounts.alice, accounts.bob));
+            assert!(secret_files.is_approved_for_all(accounts.alice, accounts.bob));
             // Get contract address.
             let callee = ink_env::account_id::<ink_env::DefaultEnvironment>();
             // Create call
@@ -759,31 +760,31 @@ mod aes_256_gcm_demo {
             );
             // Bob transfers token Id 1 from Alice to Eve.
             assert_eq!(
-                aes_256_gcm_demo.transfer_from(accounts.alice, accounts.eve, 1),
+                secret_files.transfer_from(accounts.alice, accounts.eve, 1),
                 Ok(())
             );
             // TokenId 1 is owned by Eve.
-            assert_eq!(aes_256_gcm_demo.owner_of(1), Some(accounts.eve));
+            assert_eq!(secret_files.owner_of(1), Some(accounts.eve));
             // Alice owns 1 token.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 1);
+            assert_eq!(secret_files.balance_of(accounts.alice), 1);
             // Bob transfers token Id 2 from Alice to Eve.
             assert_eq!(
-                aes_256_gcm_demo.transfer_from(accounts.alice, accounts.eve, 2),
+                secret_files.transfer_from(accounts.alice, accounts.eve, 2),
                 Ok(())
             );
             // Bob does not owns tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.bob), 0);
+            assert_eq!(secret_files.balance_of(accounts.bob), 0);
             // Eve owns 2 tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.eve), 2);
+            assert_eq!(secret_files.balance_of(accounts.eve), 2);
             // Get back to the parent execution context.
             ink_env::test::pop_execution_context();
             // Remove operator approval for Bob on behalf of Alice.
             assert_eq!(
-                aes_256_gcm_demo.set_approval_for_all(accounts.bob, false),
+                secret_files.set_approval_for_all(accounts.bob, false),
                 Ok(())
             );
             // Bob is not an approved operator for Alice.
-            assert!(!aes_256_gcm_demo.is_approved_for_all(accounts.alice, accounts.bob));
+            assert!(!secret_files.is_approved_for_all(accounts.alice, accounts.bob));
         }
 
         #[ink::test]
@@ -791,15 +792,15 @@ mod aes_256_gcm_demo {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
             // Create a new contract instance.
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             // Create token Id 1.
-            assert_eq!(aes_256_gcm_demo.mint(1), Ok(()));
+            assert_eq!(secret_files.mint(1), Ok(()));
             // Alice owns 1 token.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 1);
+            assert_eq!(secret_files.balance_of(accounts.alice), 1);
             // Bob does not owns tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.bob), 0);
+            assert_eq!(secret_files.balance_of(accounts.bob), 0);
             // Eve does not owns tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.eve), 0);
+            assert_eq!(secret_files.balance_of(accounts.eve), 0);
             // Get contract address.
             let callee = ink_env::account_id::<ink_env::DefaultEnvironment>();
             // Create call
@@ -815,15 +816,15 @@ mod aes_256_gcm_demo {
             );
             // Eve is not an approved operator by Alice.
             assert_eq!(
-                aes_256_gcm_demo.transfer_from(accounts.alice, accounts.frank, 1),
+                secret_files.transfer_from(accounts.alice, accounts.frank, 1),
                 Err(Error::NotApproved)
             );
             // Alice owns 1 token.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 1);
+            assert_eq!(secret_files.balance_of(accounts.alice), 1);
             // Bob does not owns tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.bob), 0);
+            assert_eq!(secret_files.balance_of(accounts.bob), 0);
             // Eve does not owns tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.eve), 0);
+            assert_eq!(secret_files.balance_of(accounts.eve), 0);
         }
 
         #[ink::test]
@@ -831,27 +832,27 @@ mod aes_256_gcm_demo {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
             // Create a new contract instance.
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             // Create token Id 1 for Alice
-            assert_eq!(aes_256_gcm_demo.mint(1), Ok(()));
+            assert_eq!(secret_files.mint(1), Ok(()));
             // Alice owns 1 token.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 1);
+            assert_eq!(secret_files.balance_of(accounts.alice), 1);
             // Alice owns token Id 1.
-            assert_eq!(aes_256_gcm_demo.owner_of(1), Some(accounts.alice));
+            assert_eq!(secret_files.owner_of(1), Some(accounts.alice));
             // Destroy token Id 1.
-            assert_eq!(aes_256_gcm_demo.burn(1), Ok(()));
+            assert_eq!(secret_files.burn(1), Ok(()));
             // Alice does not owns tokens.
-            assert_eq!(aes_256_gcm_demo.balance_of(accounts.alice), 0);
+            assert_eq!(secret_files.balance_of(accounts.alice), 0);
             // Token Id 1 does not exists
-            assert_eq!(aes_256_gcm_demo.owner_of(1), None);
+            assert_eq!(secret_files.owner_of(1), None);
         }
 
         #[ink::test]
         fn burn_fails_token_not_found() {
             // Create a new contract instance.
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             // Try burning a non existent token
-            assert_eq!(aes_256_gcm_demo.burn(1), Err(Error::TokenNotFound));
+            assert_eq!(secret_files.burn(1), Err(Error::TokenNotFound));
         }
 
         #[ink::test]
@@ -859,17 +860,17 @@ mod aes_256_gcm_demo {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
             // Create a new contract instance.
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             // Create token Id 1 for Alice
-            assert_eq!(aes_256_gcm_demo.mint(1), Ok(()));
+            assert_eq!(secret_files.mint(1), Ok(()));
             // Try burning this token with a different account
             set_sender(accounts.eve);
-            assert_eq!(aes_256_gcm_demo.burn(1), Err(Error::NotOwner));
+            assert_eq!(secret_files.burn(1), Err(Error::NotOwner));
         }
 
         #[ink::test]
         fn file_operations() {
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
 
@@ -877,22 +878,22 @@ mod aes_256_gcm_demo {
             let file_content: Vec<u8> = b"hello world".to_vec();
 
             // 1. create the file handle
-            aes_256_gcm_demo
+            secret_files
                 .new_file(id)
                 .expect("Cannot create file handle");
             // ensure the token is correctly minted
-            assert_eq!(aes_256_gcm_demo.owner_of(id), Some(accounts.alice));
+            assert_eq!(secret_files.owner_of(id), Some(accounts.alice));
             // 2. encrypt the file and get the ciphertext
-            let ciphertext = aes_256_gcm_demo
+            let ciphertext = secret_files
                 .encrypt_file(id, 0, file_content.clone())
                 .expect("Cannot encrypt");
             // 3. upload the ciphertext and get the link
             let link = String::from("ipfs://demo-link");
-            aes_256_gcm_demo
+            secret_files
                 .update_link(id, link)
                 .expect("Cannot set file link");
             // 4. decrypt the file
-            let plaintext = aes_256_gcm_demo
+            let plaintext = secret_files
                 .decrypt_file(id, 0, ciphertext)
                 .expect("Cannot decrypt");
             assert_eq!(file_content, plaintext);
@@ -902,36 +903,36 @@ mod aes_256_gcm_demo {
         fn unauthorized_file_operations() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>()
                 .expect("Cannot get accounts");
-            let mut aes_256_gcm_demo = Erc721::new();
+            let mut secret_files = SecretFiles::new();
 
             let id = 1;
             let file_content: Vec<u8> = b"hello world".to_vec();
             let link = String::from("ipfs://demo-link");
 
-            aes_256_gcm_demo
+            secret_files
                 .new_file(id)
                 .expect("Cannot create file handle");
             // token not exists
             assert_eq!(
-                aes_256_gcm_demo.encrypt_file(id + 1, 0, file_content.clone()),
+                secret_files.encrypt_file(id + 1, 0, file_content.clone()),
                 Err(Error::TokenNotFound)
             );
             assert_eq!(
-                aes_256_gcm_demo.update_link(id + 1, link.clone()),
+                secret_files.update_link(id + 1, link.clone()),
                 Err(Error::TokenNotFound)
             );
             // unauthorized operations
             set_sender(accounts.eve);
             assert_eq!(
-                aes_256_gcm_demo.encrypt_file(id, 0, file_content.clone()),
+                secret_files.encrypt_file(id, 0, file_content.clone()),
                 Err(Error::NotApproved)
             );
             assert_eq!(
-                aes_256_gcm_demo.update_link(id, link.clone()),
+                secret_files.update_link(id, link.clone()),
                 Err(Error::NotOwner)
             );
             assert_eq!(
-                aes_256_gcm_demo.decrypt_file(id, 0, file_content.clone()),
+                secret_files.decrypt_file(id, 0, file_content.clone()),
                 Err(Error::NotApproved)
             );
         }
