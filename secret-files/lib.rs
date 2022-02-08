@@ -53,7 +53,6 @@ mod secret_files {
     use core::convert::TryInto;
 
     use ink_prelude::{string::String, vec::Vec};
-    #[cfg(not(feature = "ink-as-dependency"))]
     use ink_storage::{
         collections::{hashmap::Entry, HashMap as StorageHashMap},
         traits::{PackedLayout, SpreadLayout},
@@ -92,13 +91,13 @@ mod secret_files {
         Decode,
     )]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-    pub struct SecretFileHandle {
+    pub struct SecretHandle {
         key: AESKey,
         iv: IV,
         link: Option<String>,
     }
 
-    impl SecretFileHandle {
+    impl SecretHandle {
         pub fn new() -> Self {
             Self {
                 key: next_random(),
@@ -174,7 +173,7 @@ mod secret_files {
         /// Mapping from owner to operator approvals.
         operator_approvals: StorageHashMap<(AccountId, AccountId), bool>,
         /// Mapping from token to secret file handle.
-        file_handles: StorageHashMap<TokenId, SecretFileHandle>,
+        file_handles: StorageHashMap<TokenId, SecretHandle>,
     }
 
     #[derive(Encode, Decode, Debug, PartialEq, Eq, Copy, Clone)]
@@ -348,7 +347,7 @@ mod secret_files {
         /// Create a new file handle, allocate the secret key and iv.
         #[ink(message)]
         pub fn new_file(&mut self, id: TokenId) -> Result<(), Error> {
-            let file_handle = SecretFileHandle::new();
+            let file_handle = SecretHandle::new();
             self.mint(id)?;
             self.file_handles.insert(id, file_handle);
             Ok(())
